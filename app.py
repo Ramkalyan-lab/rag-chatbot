@@ -6,7 +6,7 @@ Uses Ollama (local AI, no API key needed) + Streamlit UI
 import os
 import glob
 import streamlit as st
-import ollama
+
 import chromadb
 from chromadb.utils import embedding_functions
 
