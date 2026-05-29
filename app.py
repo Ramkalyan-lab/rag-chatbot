@@ -1,4 +1,4 @@
-import os
+ï»¿import os
 import glob
 import streamlit as st
 from groq import Groq
@@ -13,7 +13,7 @@ GROQ_KEY = os.environ.get("GROQ_API_KEY", "")
 
 st.set_page_config(page_title="Free AI Chatbot", page_icon="??", layout="centered")
 st.title("?? Free AI Chatbot")
-st.caption("General chat + Document Q&A — powered by Groq + Llama 3.2, 100% free")
+st.caption("General chat + Document Q&A ï¿½ powered by Groq + Llama 3.2, 100% free")
 
 if not GROQ_KEY:
     st.error("GROQ_API_KEY not set. Add it in Streamlit Cloud Secrets.")
@@ -114,9 +114,9 @@ if st.session_state.mode != mode:
 
 if not st.session_state.messages:
     if "RAG" in mode:
-        st.info("?? Document Q&A mode — ask anything about your documents!")
+        st.info("?? Document Q&A mode ï¿½ ask anything about your documents!")
     else:
-        st.info("?? General chat mode — ask me anything!")
+        st.info("?? General chat mode ï¿½ ask me anything!")
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
