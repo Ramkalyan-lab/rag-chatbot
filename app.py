@@ -1,19 +1,19 @@
-﻿import os
+import os
 import glob
 import streamlit as st
 from groq import Groq
 
-# ── Config ────────────────────────────────────────────────────────────────────
+# -- Config --------------------------------------------------------------------
 
 DOCS_DIR = "sample_docs"
-MODEL    = "llama-3.2-3b-preview"
+MODEL    = "llama-3.3-70b-versatile"
 GROQ_KEY = os.environ.get("GROQ_API_KEY", "")
 
-# ── Page Setup ────────────────────────────────────────────────────────────────
+# -- Page Setup ----------------------------------------------------------------
 
-st.set_page_config(page_title="Free AI Chatbot", page_icon="🤖", layout="centered")
-st.title("🤖 Free AI Chatbot")
-st.caption("General chat + Document Q&A — powered by Groq + Llama 3.2, 100% free")
+st.set_page_config(page_title="Free AI Chatbot", page_icon="??", layout="centered")
+st.title("?? Free AI Chatbot")
+st.caption("General chat + Document Q&A � powered by Groq + Llama 3.2, 100% free")
 
 if not GROQ_KEY:
     st.error("GROQ_API_KEY not set. Add it in Streamlit Cloud Secrets.")
@@ -21,7 +21,7 @@ if not GROQ_KEY:
 
 client = Groq(api_key=GROQ_KEY)
 
-# ── Simple RAG (no ChromaDB needed) ──────────────────────────────────────────
+# -- Simple RAG (no ChromaDB needed) ------------------------------------------
 
 @st.cache_data
 def load_documents():
@@ -66,19 +66,19 @@ Context:
     response = client.chat.completions.create(model=MODEL, messages=messages, max_tokens=1024)
     return response.choices[0].message.content
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
+# -- Sidebar -------------------------------------------------------------------
 
 with st.sidebar:
-    st.header("⚙️ Settings")
-    mode = st.radio("Chat mode:", ["💬 General Chat", "📄 Document Q&A (RAG)"], index=0)
+    st.header("?? Settings")
+    mode = st.radio("Chat mode:", ["?? General Chat", "?? Document Q&A (RAG)"], index=0)
     st.divider()
 
     if "RAG" in mode:
         docs = load_documents()
         if docs:
-            st.success(f"✅ {len(docs)} document(s) loaded")
+            st.success(f"? {len(docs)} document(s) loaded")
             for d in docs:
-                st.caption(f"📄 {d['filename']}")
+                st.caption(f"?? {d['filename']}")
         else:
             st.warning("No .txt files found in sample_docs/")
         st.divider()
@@ -97,12 +97,12 @@ with st.sidebar:
                 st.session_state.sample_q = q
 
     st.divider()
-    st.info("⚡ Groq + Llama 3.2\n\n✅ Free forever\n✅ Super fast")
-    if st.button("🗑️ Clear chat", use_container_width=True):
+    st.info("? Groq + Llama 3.2\n\n? Free forever\n? Super fast")
+    if st.button("??? Clear chat", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
 
-# ── Chat ──────────────────────────────────────────────────────────────────────
+# -- Chat ----------------------------------------------------------------------
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -114,15 +114,15 @@ if st.session_state.mode != mode:
 
 if not st.session_state.messages:
     if "RAG" in mode:
-        st.info("📄 Document Q&A mode — ask anything about your documents!")
+        st.info("?? Document Q&A mode � ask anything about your documents!")
     else:
-        st.info("💬 General chat mode — ask me anything!")
+        st.info("?? General chat mode � ask me anything!")
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
         if msg.get("sources"):
-            st.caption(f"📄 Sources: {msg['sources']}")
+            st.caption(f"?? Sources: {msg['sources']}")
 
 prompt = st.chat_input("Type your message here...")
 if "sample_q" in st.session_state and st.session_state.sample_q:
@@ -146,6 +146,6 @@ if prompt:
                 answer = ask_groq(prompt, history=st.session_state.messages)
         st.markdown(answer)
         if sources:
-            st.caption(f"📄 Sources: {sources}")
+            st.caption(f"?? Sources: {sources}")
 
     st.session_state.messages.append({"role": "assistant", "content": answer, "sources": sources})
