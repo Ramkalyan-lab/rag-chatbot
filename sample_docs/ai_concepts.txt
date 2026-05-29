@@ -1,0 +1,36 @@
+AI & Machine Learning Concepts — Quick Reference Guide
+
+LARGE LANGUAGE MODELS (LLMs)
+Large Language Models are AI models trained on massive text datasets to understand and generate human language. They predict the next word (or token) in a sequence, which allows them to write code, answer questions, translate languages, and summarise text. Popular LLMs include GPT-4 (OpenAI), Claude (Anthropic), and Gemini (Google).
+
+RETRIEVAL-AUGMENTED GENERATION (RAG)
+RAG is a technique that improves LLM accuracy by giving the model relevant external information before it answers a question. Instead of relying only on what it learned during training, the model first retrieves relevant documents from a knowledge base, then generates an answer grounded in those documents. This reduces hallucinations and allows the model to answer questions about private or recent data it has never seen.
+
+Steps in a RAG pipeline:
+1. Ingest — Load documents and split them into chunks.
+2. Embed — Convert each chunk into a vector (a list of numbers representing meaning).
+3. Store — Save vectors in a vector database (e.g., ChromaDB, Pinecone, Weaviate).
+4. Query — When a user asks a question, embed the question and find the closest chunks.
+5. Generate — Pass the retrieved chunks + question to the LLM and get an answer.
+
+EMBEDDINGS
+An embedding is a numerical representation of text as a vector in high-dimensional space. Texts with similar meaning are close together in this space. For example, "dog" and "puppy" would have very similar embedding vectors, while "dog" and "accounting" would be far apart. Sentence-transformers and OpenAI's text-embedding-ada-002 are popular models for generating embeddings.
+
+VECTOR DATABASES
+A vector database stores embeddings and allows fast similarity search — finding the most similar vectors to a query vector. Unlike traditional databases that match exact values, vector databases match by meaning. Common options: ChromaDB (local, open-source), Pinecone (cloud), Weaviate, Qdrant, FAISS.
+
+HALLUCINATIONS
+A hallucination is when an LLM generates text that sounds confident but is factually incorrect or made up. This happens because LLMs generate plausible-sounding text based on patterns, not verified facts. RAG reduces hallucinations by grounding the model's answers in retrieved source documents.
+
+PROMPT ENGINEERING
+Prompt engineering is the practice of carefully designing the input (prompt) to an LLM to get better outputs. Techniques include:
+- Zero-shot prompting: asking the model to do something with no examples.
+- Few-shot prompting: providing 2-5 examples of input/output pairs in the prompt.
+- Chain-of-thought: asking the model to "think step by step" before answering.
+- System prompts: giving the model a persona or instructions at the start of a conversation.
+
+TOKENS
+LLMs don't read words — they read tokens, which are chunks of text roughly 3–4 characters long. "Hyderabad" might be 3 tokens. Models have a context window limit (e.g., Claude has a 200k token context), which determines how much text they can process at once. API pricing is usually per 1000 tokens.
+
+FINE-TUNING
+Fine-tuning is the process of taking a pre-trained LLM and training it further on a specific dataset to specialise its behaviour. For example, fine-tuning Claude on medical records to make it better at clinical summaries. Fine-tuning is expensive and requires labelled data. For most use cases, prompt engineering and RAG are better first approaches.

@@ -1,0 +1,22 @@
+Company FAQ — Acme Corp
+
+Q: What is Acme Corp's refund policy?
+A: Acme Corp offers a 30-day full refund on all products. To initiate a refund, contact support@acme.com with your order number. Refunds are processed within 5-7 business days back to the original payment method. After 30 days, only store credit is available.
+
+Q: How do I contact customer support?
+A: You can reach our support team via email at support@acme.com, by phone at 1-800-ACME-123 (Monday to Friday, 9am–6pm IST), or through the live chat on our website. Average response time is under 2 hours during business hours.
+
+Q: What are Acme Corp's office locations?
+A: Acme Corp is headquartered in Hyderabad, India. We also have offices in Bangalore, Mumbai, and a US office in San Francisco. The Hyderabad office is our engineering and product hub.
+
+Q: Does Acme Corp offer internships?
+A: Yes! We run two internship cohorts each year — January and July. Applications open 8 weeks before the cohort starts. Internships are paid, 3–6 months long, and available in engineering, product, and design. Apply at careers.acme.com/internships.
+
+Q: What is the work-from-home policy?
+A: Acme Corp is a remote-first company. All employees work remotely by default. There are optional quarterly in-person team meetups in Hyderabad. New hires are asked to be available during IST 10am–6pm core hours.
+
+Q: What tech stack does Acme Corp use?
+A: Our backend is primarily Python (FastAPI) and Ruby on Rails. Frontend is React with TypeScript. We use PostgreSQL and Redis for data storage, and AWS for infrastructure. AI features are built using the Claude and OpenAI APIs.
+
+Q: How does the performance review process work?
+A: Reviews happen twice a year — in June and December. Each review includes self-assessment, peer feedback, and a manager review. Bonuses are tied to performance ratings: Exceeds (20% bonus), Meets (10% bonus), Below (no bonus). Promotions are discussed during December reviews.

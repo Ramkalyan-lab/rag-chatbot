@@ -1,0 +1,21 @@
+# Environment
+.env
+__pycache__/
+*.pyc
+*.pyo
+
+# ChromaDB data (don't commit the vector DB — it regenerates on ingest)
+chroma_db/
+
+# Python virtual environment
+venv/
+env/
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
