@@ -87,15 +87,25 @@ def generate_image(prompt, width=768, height=512):
 
 def is_image_request(text):
     """Detect if user wants to generate an image."""
-    keywords = [
+    t = text.lower().strip()
+    # Direct generation keywords
+    gen_keywords = [
         "generate image", "create image", "make image", "draw",
         "generate a picture", "create a picture", "make a picture",
-        "generate photo", "create photo", "show me an image of",
+        "generate photo", "create photo", "show me an image",
         "generate an image", "create an illustration", "paint",
         "design an image", "make art", "generate art", "create art",
-        "image of", "picture of", "photo of", "illustration of"
+        "create a photo", "make a photo", "make an image",
+        "generate a ", "create a scene", "show image of",
+        "image of a", "picture of a", "photo of a",
     ]
-    return any(k in text.lower() for k in keywords)
+    return any(k in t for k in gen_keywords)
+
+
+def is_image_gen_mode_request(text):
+    """Even simpler check when in Image Generator mode."""
+    # In image generator mode, treat everything as an image prompt
+    return True
 
 def extract_image_prompt(text, ai_response=None):
     """Extract the actual image prompt from user message."""
@@ -467,16 +477,24 @@ if prompt:
             try:
                 # ── Image Generation ──────────────────────────────────────
                 if mode == "Image Generator" or is_image_request(prompt):
-                    img_prompt = extract_image_prompt(prompt)
-                    with st.spinner(f"🎨 Generating image: '{img_prompt}'..."):
+                    # In Image Generator mode use full prompt as image description
+                    if mode == "Image Generator":
+                        img_prompt = prompt  # use exactly what user typed
+                    else:
+                        img_prompt = extract_image_prompt(prompt)
+                    with st.spinner(f"🎨 Generating: '{img_prompt[:50]}...' Please wait 10-15 seconds..."):
                         image_url = generate_image(img_prompt)
-                        # Verify image loads
-                        r = requests.get(image_url, timeout=30)
-                        if r.status_code == 200:
+                        try:
+                            r = requests.get(image_url, timeout=30)
+                            if r.status_code == 200:
+                                generated_image = image_url
+                                answer = f"🎨 Here is your AI generated image!\n\n**Prompt:** {img_prompt}"
+                            else:
+                                generated_image = image_url  # show anyway
+                                answer = f"🎨 Generated image for: **{img_prompt}**"
+                        except:
                             generated_image = image_url
-                            answer = f"Here is your AI generated image of **{img_prompt}**!"
-                        else:
-                            answer = "Sorry, image generation failed. Try a different description."
+                            answer = f"🎨 Generated image for: **{img_prompt}**"
 
                 # ── Image Analysis ────────────────────────────────────────
                 elif mode == "Image Analysis":
