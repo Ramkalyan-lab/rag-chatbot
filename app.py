@@ -321,11 +321,13 @@ with st.sidebar:
         img_f = st.file_uploader("Image",type=["jpg","jpeg","png","webp"],
             label_visibility="collapsed",key="img_up")
         if img_f:
-            st.image(img_f,use_column_width=True)
-            st.session_state.uploaded_image_b64 = base64.b64encode(img_f.read()).decode("utf-8")
+            img_bytes = img_f.read()
+            st.image(img_bytes, use_column_width=True)
+            st.session_state.uploaded_image_b64 = base64.b64encode(img_bytes).decode("utf-8")
             st.session_state.uploaded_image_type = img_f.type
             st.session_state.mode = "Image Analysis"
-            st.success("✅ Image ready!")
+            st.success(f"✅ Image ready! ({img_f.name})")
+            st.caption("Now switch to Image Analysis mode and ask anything about it.")
 
     with st.expander("🎤 Upload Audio", expanded=False):
         aud_f = st.file_uploader("Audio",type=["wav","mp3","m4a","ogg"],
@@ -369,9 +371,9 @@ st.markdown("""
 
 mode = st.session_state.mode
 
-if st.session_state.uploaded_image_b64 and mode == "Image Analysis":
+if st.session_state.uploaded_image_b64:
     st.image(base64.b64decode(st.session_state.uploaded_image_b64),
-             caption="Uploaded image", width=350)
+             caption="Uploaded image — ask about it in Image Analysis mode", width=300)
 
 # Live Voice Recorder
 with st.expander("🎤 Live Voice Recorder", expanded=False):
