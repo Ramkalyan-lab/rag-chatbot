@@ -9,6 +9,7 @@ import base64
 import tempfile
 import requests
 import json
+import urllib.parse
 
 # ── Config ────────────────────────────────────────────────────────────────────
 DOCS_DIR    = "sample_docs"
@@ -49,12 +50,22 @@ div[data-testid="stSidebar"] { background: #171717 !important; border-right: 1px
     border-radius: 6px; padding: 3px 10px; font-size: 12px; color: #6ee7b7;
     display: inline-block; margin-top: 6px;
 }
+.img-badge {
+    background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3);
+    border-radius: 6px; padding: 3px 10px; font-size: 12px; color: #fcd34d;
+    display: inline-block; margin-top: 6px;
+}
 .search-result {
     background: #1a1a1a; border: 1px solid #2a2a2a;
     border-radius: 8px; padding: 8px 12px; margin: 4px 0;
     font-size: 12px; color: #aaa;
 }
 .search-result a { color: #818cf8; text-decoration: none; }
+.gen-image-box {
+    border: 1px solid rgba(245,158,11,0.3);
+    border-radius: 12px; padding: 4px;
+    background: #1a1a1a; margin-top: 8px;
+}
 #MainMenu, footer { visibility: hidden; }
 header { visibility: hidden; }
 </style>
@@ -67,6 +78,42 @@ if not GROQ_KEY:
 
 client = Groq(api_key=GROQ_KEY)
 
+# ── Image Generation (Pollinations AI - Free, no key needed) ─────────────────
+def generate_image(prompt, width=768, height=512):
+    """Generate image using Pollinations AI — completely free, no API key."""
+    encoded = urllib.parse.quote(prompt)
+    url = f"https://image.pollinations.ai/prompt/{encoded}?width={width}&height={height}&nologo=true"
+    return url
+
+def is_image_request(text):
+    """Detect if user wants to generate an image."""
+    keywords = [
+        "generate image", "create image", "make image", "draw",
+        "generate a picture", "create a picture", "make a picture",
+        "generate photo", "create photo", "show me an image of",
+        "generate an image", "create an illustration", "paint",
+        "design an image", "make art", "generate art", "create art",
+        "image of", "picture of", "photo of", "illustration of"
+    ]
+    return any(k in text.lower() for k in keywords)
+
+def extract_image_prompt(text, ai_response=None):
+    """Extract the actual image prompt from user message."""
+    removes = [
+        "generate image of", "create image of", "make image of",
+        "generate a picture of", "create a picture of", "draw",
+        "generate an image of", "create an illustration of",
+        "show me an image of", "generate photo of", "create photo of",
+        "make art of", "generate art of", "image of", "picture of",
+        "photo of", "illustration of", "generate image", "create image",
+        "make image", "generate a", "create a", "make a", "paint a",
+        "paint an", "design an image of", "design a"
+    ]
+    prompt = text.lower()
+    for r in removes:
+        prompt = prompt.replace(r, "")
+    return prompt.strip() or text
+
 # ── Web Search ────────────────────────────────────────────────────────────────
 def web_search(query, max_results=5):
     if not TAVILY_KEY:
@@ -74,45 +121,34 @@ def web_search(query, max_results=5):
     try:
         response = requests.post(
             "https://api.tavily.com/search",
-            json={
-                "api_key": TAVILY_KEY,
-                "query": query,
-                "max_results": max_results,
-                "search_depth": "basic",
-                "include_answer": True
-            },
+            json={"api_key": TAVILY_KEY, "query": query,
+                  "max_results": max_results, "search_depth": "basic",
+                  "include_answer": True},
             timeout=10
         )
         data = response.json()
-        results = data.get("results", [])
-        answer = data.get("answer", "")
-        return answer, results
-    except Exception as e:
+        return data.get("answer", ""), data.get("results", [])
+    except:
         return None, []
 
 def needs_web_search(question):
-    """Detect if question needs current/recent information."""
-    keywords = [
-        "2024", "2025", "2026", "latest", "recent", "current", "today",
-        "now", "new", "news", "price", "weather", "who is", "what is the",
-        "trending", "live", "right now", "this year", "last year",
-        "score", "result", "election", "launch", "release", "update"
-    ]
-    q_lower = question.lower()
-    return any(k in q_lower for k in keywords)
+    keywords = ["2024","2025","2026","latest","recent","current","today",
+                "now","new","news","price","weather","who is","trending",
+                "live","right now","this year","last year","score","result",
+                "election","launch","release","update"]
+    return any(k in question.lower() for k in keywords)
 
-# ── Live Voice Recorder HTML ──────────────────────────────────────────────────
+# ── Live Voice Recorder ───────────────────────────────────────────────────────
 VOICE_HTML = """
 <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);border:1px solid rgba(99,102,241,0.4);border-radius:16px;padding:20px;text-align:center;font-family:Inter,sans-serif;">
     <div id="status" style="color:#a5b4fc;font-size:14px;margin-bottom:12px;">Click mic to start recording</div>
     <canvas id="wv" width="400" height="50" style="width:100%;height:50px;background:rgba(0,0,0,0.3);border-radius:8px;margin-bottom:12px;display:block;"></canvas>
     <div id="timer" style="color:#818cf8;font-size:22px;font-weight:600;margin-bottom:12px;">00:00</div>
     <div style="display:flex;gap:12px;justify-content:center;margin-bottom:12px;">
-        <button onclick="startR()" id="sb" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:50%;width:60px;height:60px;font-size:26px;cursor:pointer;box-shadow:0 4px 15px rgba(99,102,241,0.4);">🎤</button>
+        <button onclick="startR()" id="sb" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:50%;width:60px;height:60px;font-size:26px;cursor:pointer;">🎤</button>
         <button onclick="stopR()" id="pb" disabled style="background:#2a2a2a;color:#555;border:none;border-radius:50%;width:60px;height:60px;font-size:26px;cursor:not-allowed;">⏹️</button>
     </div>
     <div id="play" style="display:none;margin-bottom:10px;"><audio id="ap" controls style="width:100%;border-radius:8px;"></audio></div>
-    <button onclick="sendA()" id="sendbtn" style="display:none;width:100%;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;padding:10px;font-size:14px;cursor:pointer;">✅ Send for Transcription</button>
     <div id="msg" style="color:#10b981;font-size:12px;margin-top:8px;"></div>
 </div>
 <script>
@@ -126,7 +162,7 @@ async function startR(){
         an=ac.createAnalyser();an.fftSize=256;src.connect(an);draw();
         chunks=[];mr=new MediaRecorder(stream);
         mr.ondataavailable=e=>chunks.push(e.data);
-        mr.onstop=()=>{blob=new Blob(chunks,{type:'audio/webm'});document.getElementById('ap').src=URL.createObjectURL(blob);document.getElementById('play').style.display='block';document.getElementById('sendbtn').style.display='block';document.getElementById('status').textContent='Done! Listen and click Send.';cancelAnimationFrame(af);stream.getTracks().forEach(t=>t.stop());};
+        mr.onstop=()=>{blob=new Blob(chunks,{type:'audio/webm'});document.getElementById('ap').src=URL.createObjectURL(blob);document.getElementById('play').style.display='block';document.getElementById('status').textContent='Done! Listen to your recording.';cancelAnimationFrame(af);stream.getTracks().forEach(t=>t.stop());};
         mr.start();secs=0;ti=setInterval(tick,1000);
         document.getElementById('sb').textContent='🔴';document.getElementById('sb').style.background='linear-gradient(135deg,#ef4444,#dc2626)';
         document.getElementById('pb').disabled=false;document.getElementById('pb').style.background='#333';document.getElementById('pb').style.color='white';document.getElementById('pb').style.cursor='pointer';
@@ -134,17 +170,6 @@ async function startR(){
     }catch(e){document.getElementById('status').textContent='Microphone denied. Please allow microphone access.';}
 }
 function stopR(){if(mr&&mr.state!=='inactive'){mr.stop();clearInterval(ti);}document.getElementById('sb').textContent='🎤';document.getElementById('sb').style.background='linear-gradient(135deg,#6366f1,#8b5cf6)';document.getElementById('pb').disabled=true;}
-function sendA(){
-    if(!blob)return;
-    const r=new FileReader();
-    r.onloadend=()=>{
-        window.sessionStorage.setItem('voiceB64',r.result.split(',')[1]);
-        window.sessionStorage.setItem('voiceReady','true');
-        document.getElementById('msg').textContent='Audio ready! Now upload it via sidebar Voice Upload to transcribe.';
-        document.getElementById('sendbtn').textContent='✅ Saved to session';
-    };
-    r.readAsDataURL(blob);
-}
 </script>
 """
 
@@ -208,7 +233,7 @@ def retrieve(query, docs, top_k=3):
 def ask_groq(question, context=None, web_context=None, history=None, image_b64=None, image_type=None):
     if image_b64 and image_type:
         response = client.chat.completions.create(
-            model="llama-4-scout-17b-16e-instruct",
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[{"role":"user","content":[
                 {"type":"image_url","image_url":{"url":f"data:{image_type};base64,{image_b64}"}},
                 {"type":"text","text":question or "Describe this image in detail."}
@@ -216,16 +241,14 @@ def ask_groq(question, context=None, web_context=None, history=None, image_b64=N
         return response.choices[0].message.content
 
     if web_context:
-        system = f"""You are a helpful AI assistant with access to current web search results.
-Use the search results below to answer the question accurately with up-to-date information.
-Always mention when information is from web search.
+        system = f"""You are a helpful AI with access to current web search results.
+Use the search results below to answer accurately with up-to-date information.
 
 WEB SEARCH RESULTS:
 {web_context}"""
     elif context:
         system = f"""You are a helpful document assistant.
 Read the document content carefully and answer based on it.
-If not in documents, say so clearly.
 
 DOCUMENT CONTENT:
 {context}"""
@@ -245,7 +268,8 @@ def transcribe_bytes(audio_bytes, ext=".webm"):
     with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
         tmp.write(audio_bytes); tmp_path = tmp.name
     with open(tmp_path,"rb") as f:
-        result = client.audio.transcriptions.create(model="whisper-large-v3",file=f,response_format="text")
+        result = client.audio.transcriptions.create(
+            model="whisper-large-v3", file=f, response_format="text")
     os.unlink(tmp_path)
     return result
 
@@ -268,8 +292,9 @@ with st.sidebar:
 
     st.divider()
     st.markdown("**Chat Mode**")
-    for m in ["General Chat", "Document Q&A", "Image Analysis", "Web Search"]:
-        icon = {"General Chat":"💬","Document Q&A":"📄","Image Analysis":"🖼️","Web Search":"🌐"}[m]
+    for m in ["General Chat","Document Q&A","Image Analysis","Web Search","Image Generator"]:
+        icon = {"General Chat":"💬","Document Q&A":"📄","Image Analysis":"🖼️",
+                "Web Search":"🌐","Image Generator":"🎨"}[m]
         if st.button(f"{icon} {m}", use_container_width=True,
                      type="primary" if st.session_state.mode==m else "secondary",
                      key=f"mode_{m}"):
@@ -302,8 +327,7 @@ with st.sidebar:
             st.session_state.mode = "Image Analysis"
             st.success("✅ Image ready!")
 
-    with st.expander("🎤 Upload Audio File", expanded=False):
-        st.caption("Upload recorded .wav/.mp3/.m4a")
+    with st.expander("🎤 Upload Audio", expanded=False):
         aud_f = st.file_uploader("Audio",type=["wav","mp3","m4a","ogg"],
             label_visibility="collapsed",key="aud_up")
         if aud_f:
@@ -319,22 +343,15 @@ with st.sidebar:
                         st.error(str(e)[:100])
 
     st.divider()
-
-    # Web search toggle
     if TAVILY_KEY:
         st.session_state.web_search_enabled = st.toggle(
-            "🌐 Auto Web Search", value=st.session_state.web_search_enabled,
-            help="Automatically search the web for current information"
-        )
-        st.caption("Searches web for recent/current questions automatically")
-    else:
-        st.caption("⚠️ Add TAVILY_API_KEY for web search")
-
+            "🌐 Auto Web Search", value=st.session_state.web_search_enabled)
     st.divider()
     st.markdown("""
     <div class="feat-card">
         <strong>⚡ Groq + Llama 3.3 70B</strong>
-        Free · Fast · Web Search · PDF · DOCX · Images · Voice
+        Free · Fast · Web Search<br>
+        PDF · DOCX · Images · Voice · AI Image Gen
     </div>
     """, unsafe_allow_html=True)
 
@@ -346,7 +363,7 @@ with st.sidebar:
 st.markdown("""
 <div class="app-header">
     <h1>🤖 Free AI Chatbot</h1>
-    <p>General Chat · Document Q&A · Image Analysis · Web Search · Live Voice | 100% Free | Powered by Groq</p>
+    <p>Chat · Documents · Image Analysis · Web Search · AI Image Generation · Voice | 100% Free</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -357,58 +374,80 @@ if st.session_state.uploaded_image_b64 and mode == "Image Analysis":
              caption="Uploaded image", width=350)
 
 # Live Voice Recorder
-with st.expander("🎤 Live Voice Recorder — Record directly in browser", expanded=False):
-    components.html(VOICE_HTML, height=320, scrolling=False)
-    st.caption("After recording click Send, then upload the audio via sidebar 🎤 to transcribe.")
+with st.expander("🎤 Live Voice Recorder", expanded=False):
+    components.html(VOICE_HTML, height=300, scrolling=False)
     st.divider()
-    voice_text = st.text_input("Or type voice message here:", key="vt")
+    voice_text = st.text_input("Or type voice message:", key="vt")
     if voice_text and st.button("Send", key="vtsend"):
         st.session_state.sample_q = voice_text
         st.rerun()
 
-# Welcome cards
-if not st.session_state.messages:
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.markdown('<div class="feat-card"><strong>💬 General Chat</strong>Ask anything — coding, math, writing</div>', unsafe_allow_html=True)
-        for q in ["Explain RAG simply", "Write Python code"]:
-            if st.button(q, key=f"g_{q}", use_container_width=True):
-                st.session_state.sample_q = q
-    with col2:
-        st.markdown('<div class="feat-card"><strong>📄 Document Q&A</strong>Upload PDF/DOCX and chat with it</div>', unsafe_allow_html=True)
-        for q in ["Summarise this document", "Key points?"]:
-            if st.button(q, key=f"d_{q}", use_container_width=True):
-                st.session_state.sample_q = q
-                st.session_state.mode = "Document Q&A"
-    with col3:
-        st.markdown('<div class="feat-card"><strong>🖼️ Image Analysis</strong>Upload any image and ask about it</div>', unsafe_allow_html=True)
-        for q in ["What is in this image?", "Describe in detail"]:
-            if st.button(q, key=f"i_{q}", use_container_width=True):
-                st.session_state.sample_q = q
-                st.session_state.mode = "Image Analysis"
-    with col4:
-        st.markdown('<div class="feat-card"><strong>🌐 Web Search</strong>Search the internet for current info</div>', unsafe_allow_html=True)
-        for q in ["Latest AI news 2025", "Current Bitcoin price"]:
-            if st.button(q, key=f"w_{q}", use_container_width=True):
-                st.session_state.sample_q = q
-                st.session_state.mode = "Web Search"
+# Image Generator tips
+if mode == "Image Generator":
+    st.markdown("""
+    <div class="feat-card">
+        <strong>🎨 AI Image Generator — Free, no limits!</strong>
+        Type what you want to see. Examples below:
+    </div>
+    """, unsafe_allow_html=True)
+    col1, col2, col3 = st.columns(3)
+    examples = [
+        "A sunset over mountains with golden sky",
+        "A futuristic city at night with neon lights",
+        "A cute robot sitting in a garden",
+        "A wolf howling at the full moon",
+        "A magical forest with glowing mushrooms",
+        "An astronaut floating in colorful space",
+    ]
+    for i, ex in enumerate(examples):
+        with [col1, col2, col3][i % 3]:
+            if st.button(ex, key=f"ex_{i}", use_container_width=True):
+                st.session_state.sample_q = f"Generate image of {ex}"
+
+# Welcome cards for other modes
+if not st.session_state.messages and mode != "Image Generator":
+    col1, col2, col3, col4, col5 = st.columns(5)
+    cards = [
+        (col1, "💬", "General Chat", "Ask anything", ["Explain RAG", "Write Python code"]),
+        (col2, "📄", "Document Q&A", "Upload & chat with docs", ["Summarise document", "Key points?"]),
+        (col3, "🖼️", "Image Analysis", "Analyse any image", ["What is in image?", "Describe it"]),
+        (col4, "🌐", "Web Search", "Search internet", ["AI news 2025", "Bitcoin price"]),
+        (col5, "🎨", "Image Generator", "Create AI images", ["Sunset mountains", "Futuristic city"]),
+    ]
+    for col, icon, m, desc, questions in cards:
+        with col:
+            st.markdown(f'<div class="feat-card"><strong>{icon} {m}</strong>{desc}</div>', unsafe_allow_html=True)
+            for q in questions:
+                if st.button(q, key=f"wc_{m}_{q}", use_container_width=True):
+                    st.session_state.sample_q = q
+                    st.session_state.mode = m
 
 # Chat history
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+        if msg.get("generated_image"):
+            st.markdown(msg["content"])
+            st.image(msg["generated_image"], caption="🎨 AI Generated Image", use_column_width=True)
+            st.markdown(f"<span class='img-badge'>🎨 Generated with Pollinations AI</span>", unsafe_allow_html=True)
+        else:
+            st.markdown(msg["content"])
         if msg.get("sources"):
             st.markdown(f"<span class='src-badge'>📄 {msg['sources']}</span>", unsafe_allow_html=True)
         if msg.get("web_sources"):
-            st.markdown("<span class='web-badge'>🌐 Web Search Results:</span>", unsafe_allow_html=True)
+            st.markdown("<span class='web-badge'>🌐 Web Results:</span>", unsafe_allow_html=True)
             for src in msg["web_sources"][:3]:
-                st.markdown(f"""<div class='search-result'>
-                    <a href='{src.get("url","#")}' target='_blank'>{src.get("title","Source")}</a><br>
-                    {src.get("content","")[:150]}...
-                </div>""", unsafe_allow_html=True)
+                st.markdown(f"<div class='search-result'><a href='{src.get('url','#')}' target='_blank'>{src.get('title','Source')}</a><br>{src.get('content','')[:150]}...</div>", unsafe_allow_html=True)
 
 # ── Chat Input ────────────────────────────────────────────────────────────────
-prompt = st.chat_input("Message AI... (📎 sidebar for files · 🎤 for voice · 🌐 for web search)")
+hint = {
+    "General Chat": "Ask me anything...",
+    "Document Q&A": "Ask about your documents...",
+    "Image Analysis": "Ask about the uploaded image...",
+    "Web Search": "Search the web for anything...",
+    "Image Generator": "Describe the image you want to generate...",
+}.get(mode, "Message AI...")
+
+prompt = st.chat_input(hint)
 
 if st.session_state.sample_q:
     prompt = st.session_state.sample_q
@@ -420,10 +459,25 @@ if prompt:
     st.session_state.messages.append({"role":"user","content":prompt})
 
     with st.chat_message("assistant"):
-        sources = ""; web_sources = []
+        sources = ""; web_sources = []; generated_image = None
+
         with st.spinner("Thinking..."):
             try:
-                if mode == "Image Analysis":
+                # ── Image Generation ──────────────────────────────────────
+                if mode == "Image Generator" or is_image_request(prompt):
+                    img_prompt = extract_image_prompt(prompt)
+                    with st.spinner(f"🎨 Generating image: '{img_prompt}'..."):
+                        image_url = generate_image(img_prompt)
+                        # Verify image loads
+                        r = requests.get(image_url, timeout=30)
+                        if r.status_code == 200:
+                            generated_image = image_url
+                            answer = f"Here is your AI generated image of **{img_prompt}**!"
+                        else:
+                            answer = "Sorry, image generation failed. Try a different description."
+
+                # ── Image Analysis ────────────────────────────────────────
+                elif mode == "Image Analysis":
                     if st.session_state.uploaded_image_b64:
                         answer = ask_groq(prompt,
                             image_b64=st.session_state.uploaded_image_b64,
@@ -431,6 +485,7 @@ if prompt:
                     else:
                         answer = "Please upload an image using the 🖼️ Image section in the sidebar."
 
+                # ── Web Search ────────────────────────────────────────────
                 elif mode == "Web Search" or (
                     st.session_state.web_search_enabled and needs_web_search(prompt)
                 ):
@@ -440,8 +495,7 @@ if prompt:
                         web_sources = web_results
                         web_context = "\n\n".join(
                             f"Title: {r.get('title','')}\nURL: {r.get('url','')}\nContent: {r.get('content','')}"
-                            for r in web_results[:4]
-                        )
+                            for r in web_results[:4])
                         if tavily_answer:
                             web_context = f"Quick Answer: {tavily_answer}\n\n{web_context}"
                         answer = ask_groq(prompt, web_context=web_context,
@@ -449,10 +503,11 @@ if prompt:
                     else:
                         answer = ask_groq(prompt, history=st.session_state.messages)
 
+                # ── Document Q&A ──────────────────────────────────────────
                 elif mode == "Document Q&A":
                     all_docs = load_default_docs() + st.session_state.uploaded_docs
                     if not all_docs:
-                        answer = "No documents found. Upload files using the 📄 Documents section in the sidebar."
+                        answer = "No documents found. Upload files using the 📄 section in sidebar."
                     else:
                         chunks = retrieve(prompt, all_docs)
                         if not chunks:
@@ -463,6 +518,8 @@ if prompt:
                         answer = ask_groq(prompt, context=context_text,
                                           history=st.session_state.messages)
                         sources = ", ".join({c["source"] for c in chunks})
+
+                # ── General Chat ──────────────────────────────────────────
                 else:
                     answer = ask_groq(prompt, history=st.session_state.messages)
 
@@ -470,17 +527,18 @@ if prompt:
                 answer = f"Error: {str(e)[:300]}"
 
         st.markdown(answer)
+        if generated_image:
+            st.image(generated_image, caption="🎨 AI Generated Image", use_column_width=True)
+            st.markdown("<span class='img-badge'>🎨 Generated with Pollinations AI — Free</span>", unsafe_allow_html=True)
         if sources:
             st.markdown(f"<span class='src-badge'>📄 Sources: {sources}</span>", unsafe_allow_html=True)
         if web_sources:
-            st.markdown("<span class='web-badge'>🌐 Web Search Results:</span>", unsafe_allow_html=True)
+            st.markdown("<span class='web-badge'>🌐 Web Results:</span>", unsafe_allow_html=True)
             for src in web_sources[:3]:
-                st.markdown(f"""<div class='search-result'>
-                    <a href='{src.get("url","#")}' target='_blank'>{src.get("title","Source")}</a><br>
-                    {src.get("content","")[:150]}...
-                </div>""", unsafe_allow_html=True)
+                st.markdown(f"<div class='search-result'><a href='{src.get('url','#')}' target='_blank'>{src.get('title','Source')}</a><br>{src.get('content','')[:150]}...</div>", unsafe_allow_html=True)
 
     st.session_state.messages.append({
         "role":"assistant","content":answer,
-        "sources":sources,"web_sources":web_sources
+        "sources":sources,"web_sources":web_sources,
+        "generated_image":generated_image
     })
