@@ -79,11 +79,26 @@ if not GROQ_KEY:
 client = Groq(api_key=GROQ_KEY)
 
 # ── Image Generation (Pollinations AI - Free, no key needed) ─────────────────
-def generate_image(prompt, width=768, height=512):
-    """Generate image using Pollinations AI — completely free, no API key."""
-    encoded = urllib.parse.quote(prompt)
-    url = f"https://image.pollinations.ai/prompt/{encoded}?width={width}&height={height}&nologo=true"
-    return url
+def generate_image(prompt):
+    """Generate image using Hugging Face free inference API."""
+    api_url = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
+    headers = {"Content-Type": "application/json"}
+    payload = {"inputs": prompt}
+    try:
+        r = requests.post(api_url, headers=headers, json=payload, timeout=60)
+        if r.status_code == 200 and r.headers.get("content-type", "").startswith("image"):
+            img_b64 = base64.b64encode(r.content).decode("utf-8")
+            return f"data:image/jpeg;base64,{img_b64}", None
+        # Fallback to pollinations without payment params
+        encoded = urllib.parse.quote(prompt)
+        url = f"https://image.pollinations.ai/prompt/{encoded}?model=flux&width=512&height=512"
+        r2 = requests.get(url, timeout=45)
+        if r2.status_code == 200 and len(r2.content) > 1000:
+            img_b64 = base64.b64encode(r2.content).decode("utf-8")
+            return f"data:image/jpeg;base64,{img_b64}", None
+        return None, f"Status {r.status_code}"
+    except Exception as e:
+        return None, str(e)[:100]
 
 def is_image_request(text):
     """Detect if user wants to generate an image."""
@@ -486,21 +501,15 @@ if prompt:
                         img_prompt = prompt
                     else:
                         img_prompt = extract_image_prompt(prompt)
-                    with st.spinner(f"🎨 Generating image... please wait 15-20 seconds..."):
+                    with st.spinner(f"🎨 Generating image... please wait 20-30 seconds..."):
                         try:
-                            encoded = urllib.parse.quote(img_prompt)
-                            image_url = f"https://image.pollinations.ai/prompt/{encoded}?width=768&height=512&nologo=true&seed={hash(img_prompt) % 9999}"
-                            # Download image bytes directly
-                            headers = {"User-Agent": "Mozilla/5.0"}
-                            r = requests.get(image_url, timeout=45, headers=headers)
-                            if r.status_code == 200 and len(r.content) > 1000:
-                                # Store as base64 so it displays reliably
-                                img_b64 = base64.b64encode(r.content).decode("utf-8")
-                                generated_image = f"data:image/jpeg;base64,{img_b64}"
+                            img_data, err = generate_image(img_prompt)
+                            if img_data:
+                                generated_image = img_data
                                 answer = f"🎨 Here is your AI generated image!\n\n**Prompt:** {img_prompt}"
                             else:
                                 generated_image = None
-                                answer = f"Image generation failed (status {r.status_code}). Try a simpler prompt."
+                                answer = f"Image generation failed: {err}. Please try again."
                         except Exception as img_err:
                             generated_image = None
                             answer = f"Image generation error: {str(img_err)[:100]}. Try again."
