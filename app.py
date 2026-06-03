@@ -439,7 +439,12 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         if msg.get("generated_image"):
             st.markdown(msg["content"])
-            st.image(msg["generated_image"], caption="🎨 AI Generated Image", use_column_width=True)
+            img = msg["generated_image"]
+            if isinstance(img, str) and img.startswith("data:"):
+                img_data = base64.b64decode(img.split(",")[1])
+                st.image(img_data, caption="🎨 AI Generated Image", use_column_width=True)
+            elif img:
+                st.image(img, caption="🎨 AI Generated Image", use_column_width=True)
             st.markdown(f"<span class='img-badge'>🎨 Generated with Pollinations AI</span>", unsafe_allow_html=True)
         else:
             st.markdown(msg["content"])
@@ -477,24 +482,28 @@ if prompt:
             try:
                 # ── Image Generation ──────────────────────────────────────
                 if mode == "Image Generator" or is_image_request(prompt):
-                    # In Image Generator mode use full prompt as image description
                     if mode == "Image Generator":
-                        img_prompt = prompt  # use exactly what user typed
+                        img_prompt = prompt
                     else:
                         img_prompt = extract_image_prompt(prompt)
-                    with st.spinner(f"🎨 Generating: '{img_prompt[:50]}...' Please wait 10-15 seconds..."):
-                        image_url = generate_image(img_prompt)
+                    with st.spinner(f"🎨 Generating image... please wait 15-20 seconds..."):
                         try:
-                            r = requests.get(image_url, timeout=30)
-                            if r.status_code == 200:
-                                generated_image = image_url
+                            encoded = urllib.parse.quote(img_prompt)
+                            image_url = f"https://image.pollinations.ai/prompt/{encoded}?width=768&height=512&nologo=true&seed={hash(img_prompt) % 9999}"
+                            # Download image bytes directly
+                            headers = {"User-Agent": "Mozilla/5.0"}
+                            r = requests.get(image_url, timeout=45, headers=headers)
+                            if r.status_code == 200 and len(r.content) > 1000:
+                                # Store as base64 so it displays reliably
+                                img_b64 = base64.b64encode(r.content).decode("utf-8")
+                                generated_image = f"data:image/jpeg;base64,{img_b64}"
                                 answer = f"🎨 Here is your AI generated image!\n\n**Prompt:** {img_prompt}"
                             else:
-                                generated_image = image_url  # show anyway
-                                answer = f"🎨 Generated image for: **{img_prompt}**"
-                        except:
-                            generated_image = image_url
-                            answer = f"🎨 Generated image for: **{img_prompt}**"
+                                generated_image = None
+                                answer = f"Image generation failed (status {r.status_code}). Try a simpler prompt."
+                        except Exception as img_err:
+                            generated_image = None
+                            answer = f"Image generation error: {str(img_err)[:100]}. Try again."
 
                 # ── Image Analysis ────────────────────────────────────────
                 elif mode == "Image Analysis":
@@ -548,7 +557,12 @@ if prompt:
 
         st.markdown(answer)
         if generated_image:
-            st.image(generated_image, caption="🎨 AI Generated Image", use_column_width=True)
+            if generated_image.startswith("data:"):
+                # base64 image - decode and display
+                img_data = base64.b64decode(generated_image.split(",")[1])
+                st.image(img_data, caption="🎨 AI Generated Image", use_column_width=True)
+            else:
+                st.image(generated_image, caption="🎨 AI Generated Image", use_column_width=True)
             st.markdown("<span class='img-badge'>🎨 Generated with Pollinations AI — Free</span>", unsafe_allow_html=True)
         if sources:
             st.markdown(f"<span class='src-badge'>📄 Sources: {sources}</span>", unsafe_allow_html=True)
