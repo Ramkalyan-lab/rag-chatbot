@@ -80,25 +80,57 @@ client = Groq(api_key=GROQ_KEY)
 
 # ── Image Generation (Pollinations AI - Free, no key needed) ─────────────────
 def generate_image(prompt):
-    """Generate image using Hugging Face free inference API."""
-    api_url = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
-    headers = {"Content-Type": "application/json"}
-    payload = {"inputs": prompt}
+    """Generate image using Stable Horde — 100% free, no API key needed."""
     try:
-        r = requests.post(api_url, headers=headers, json=payload, timeout=60)
-        if r.status_code == 200 and r.headers.get("content-type", "").startswith("image"):
-            img_b64 = base64.b64encode(r.content).decode("utf-8")
-            return f"data:image/jpeg;base64,{img_b64}", None
-        # Fallback to pollinations without payment params
-        encoded = urllib.parse.quote(prompt)
-        url = f"https://image.pollinations.ai/prompt/{encoded}?model=flux&width=512&height=512"
-        r2 = requests.get(url, timeout=45)
-        if r2.status_code == 200 and len(r2.content) > 1000:
-            img_b64 = base64.b64encode(r2.content).decode("utf-8")
-            return f"data:image/jpeg;base64,{img_b64}", None
-        return None, f"Status {r.status_code}"
+        # Submit generation request
+        submit = requests.post(
+            "https://stablehorde.net/api/v2/generate/async",
+            headers={"apikey": "0000000000", "Content-Type": "application/json"},
+            json={
+                "prompt": prompt,
+                "params": {"width": 512, "height": 512, "steps": 20, "n": 1},
+                "models": ["stable_diffusion"]
+            },
+            timeout=30
+        )
+        if submit.status_code != 202:
+            return None, f"Submit failed: {submit.status_code}"
+
+        job_id = submit.json().get("id")
+        if not job_id:
+            return None, "No job ID received"
+
+        # Poll for result (max 90 seconds)
+        import time
+        for _ in range(18):
+            time.sleep(5)
+            check = requests.get(
+                f"https://stablehorde.net/api/v2/generate/check/{job_id}",
+                timeout=10
+            )
+            data = check.json()
+            if data.get("done"):
+                # Get the result
+                result = requests.get(
+                    f"https://stablehorde.net/api/v2/generate/status/{job_id}",
+                    timeout=10
+                )
+                generations = result.json().get("generations", [])
+                if generations:
+                    img_url = generations[0].get("img")
+                    if img_url and img_url.startswith("http"):
+                        r = requests.get(img_url, timeout=30)
+                        if r.status_code == 200:
+                            img_b64 = base64.b64encode(r.content).decode("utf-8")
+                            return f"data:image/webp;base64,{img_b64}", None
+                    elif img_url:
+                        return f"data:image/webp;base64,{img_url}", None
+                return None, "No image in response"
+
+        return None, "Generation timed out. Stable Horde is busy — try again!"
+
     except Exception as e:
-        return None, str(e)[:100]
+        return None, str(e)[:150]
 
 def is_image_request(text):
     """Detect if user wants to generate an image."""
