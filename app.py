@@ -80,55 +80,34 @@ client = Groq(api_key=GROQ_KEY)
 
 # ── Image Generation (Pollinations AI - Free, no key needed) ─────────────────
 def generate_image(prompt):
-    """Generate image using Stable Horde — 100% free, no API key needed."""
+    """Generate image using HuggingFace Inference API — free with token."""
+    HF_TOKEN = os.environ.get("HF_TOKEN", "")
+    if not HF_TOKEN:
+        return None, "HF_TOKEN not set in Streamlit Secrets."
     try:
-        # Submit generation request
-        submit = requests.post(
-            "https://stablehorde.net/api/v2/generate/async",
-            headers={"apikey": "0000000000", "Content-Type": "application/json"},
-            json={
-                "prompt": prompt,
-                "params": {"width": 512, "height": 512, "steps": 20, "n": 1},
-                "models": ["stable_diffusion"]
-            },
-            timeout=30
+        r = requests.post(
+            "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1",
+            headers={"Authorization": f"Bearer {HF_TOKEN}"},
+            json={"inputs": prompt},
+            timeout=60
         )
-        if submit.status_code != 202:
-            return None, f"Submit failed: {submit.status_code}"
-
-        job_id = submit.json().get("id")
-        if not job_id:
-            return None, "No job ID received"
-
-        # Poll for result (max 90 seconds)
-        import time
-        for _ in range(18):
-            time.sleep(5)
-            check = requests.get(
-                f"https://stablehorde.net/api/v2/generate/check/{job_id}",
-                timeout=10
+        if r.status_code == 200 and r.headers.get("content-type","").startswith("image"):
+            img_b64 = base64.b64encode(r.content).decode("utf-8")
+            return f"data:image/jpeg;base64,{img_b64}", None
+        elif r.status_code == 503:
+            # Model loading — wait and retry once
+            import time
+            time.sleep(20)
+            r2 = requests.post(
+                "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1",
+                headers={"Authorization": f"Bearer {HF_TOKEN}"},
+                json={"inputs": prompt},
+                timeout=60
             )
-            data = check.json()
-            if data.get("done"):
-                # Get the result
-                result = requests.get(
-                    f"https://stablehorde.net/api/v2/generate/status/{job_id}",
-                    timeout=10
-                )
-                generations = result.json().get("generations", [])
-                if generations:
-                    img_url = generations[0].get("img")
-                    if img_url and img_url.startswith("http"):
-                        r = requests.get(img_url, timeout=30)
-                        if r.status_code == 200:
-                            img_b64 = base64.b64encode(r.content).decode("utf-8")
-                            return f"data:image/webp;base64,{img_b64}", None
-                    elif img_url:
-                        return f"data:image/webp;base64,{img_url}", None
-                return None, "No image in response"
-
-        return None, "Generation timed out. Stable Horde is busy — try again!"
-
+            if r2.status_code == 200:
+                img_b64 = base64.b64encode(r2.content).decode("utf-8")
+                return f"data:image/jpeg;base64,{img_b64}", None
+        return None, f"HuggingFace error: {r.status_code} — {r.text[:100]}"
     except Exception as e:
         return None, str(e)[:150]
 
